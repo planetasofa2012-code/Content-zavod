@@ -21,6 +21,7 @@ from bot.agent_bot.keyboards import (
 )
 from ai.openrouter import generate_text, chat
 from ai.prompts.agent_system import AGENT_SYSTEM_PROMPT
+from bot.agent_bot.dialog_logger import start_session, log_message
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +44,14 @@ async def cmd_start(message: Message, state: FSMContext, command: CommandObject)
     # Сбросить состояние и историю
     await state.clear()
     dialog_history[user.id] = []
+
+    # Логирование: новая сессия
+    start_session(
+        user_id=user.id,
+        username=user.username or "",
+        full_name=user.full_name or "",
+        source=source,
+    )
 
     await state.set_state(AgentStates.chatting)
     await state.update_data(source=source)
@@ -93,8 +102,14 @@ async def on_client_message(message: Message, state: FSMContext, bot: Bot):
     user_id = message.from_user.id
     user_text = message.text
 
+    # Логирование сообщения клиента
+    log_message(user_id, "user", user_text, "text")
+
     # Получить ответ AI
     response = await _get_ai_response(user_id, user_text)
+
+    # Логирование ответа бота
+    log_message(user_id, "assistant", response, "text")
 
     # Счётчик сообщений (для уведомлений)
     data = await state.get_data()
@@ -344,7 +359,14 @@ async def on_client_voice(message: Message, state: FSMContext, bot: Bot):
 
         # Обрабатываем как обычное текстовое сообщение
         user_id = message.from_user.id
+
+        # Логирование голосового
+        log_message(user_id, "user", text, "voice")
+
         response = await _get_ai_response(user_id, text)
+
+        # Логирование ответа бота
+        log_message(user_id, "assistant", response, "text")
 
         data = await state.get_data()
         msg_count = data.get("msg_count", 0) + 1
