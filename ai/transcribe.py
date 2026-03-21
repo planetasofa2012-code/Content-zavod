@@ -1,60 +1,64 @@
 """
-Транскрипция голосовых сообщений через Groq Whisper API (бесплатно).
-Если Groq недоступен — фоллбэк на OpenAI Whisper.
+Транскрипция голосовых сообщений через Groq Whisper Large V3.
+Groq предоставляет аппаратное ускорение (LPU) — бесплатно и очень быстро.
 """
 
 import logging
 import httpx
-from bot.config import OPENROUTER_API_KEY
+from bot.config import GROQ_API_KEY, STT_API_URL, STT_MODEL
 
 logger = logging.getLogger(__name__)
 
-GROQ_WHISPER_URL = "https://api.groq.com/openai/v1/audio/transcriptions"
-
 
 async def transcribe_voice(audio_bytes: bytes, filename: str = "voice.ogg") -> str:
-    """Транскрибирует голосовое сообщение в текст."""
+    """Транскрибирует голосовое сообщение через Groq Whisper API."""
 
-    # Пробуем через OpenRouter (поддерживает аудио модели)
+    logger.info(f"🎤 Начинаю транскрипцию (Groq Whisper), размер аудио: {len(audio_bytes)} байт")
+
+    if not GROQ_API_KEY:
+        raise RuntimeError("GROQ_API_KEY не задан в .env — транскрипция невозможна")
+
+    # Определяем MIME-тип для multipart-загрузки
+    content_type = "audio/ogg"
+    if filename.endswith(".mp3"):
+        content_type = "audio/mpeg"
+    elif filename.endswith(".wav"):
+        content_type = "audio/wav"
+    elif filename.endswith(".m4a"):
+        content_type = "audio/mp4"
+
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
+            # Whisper API принимает файл через multipart/form-data
             response = await client.post(
-                "https://openrouter.ai/api/v1/audio/transcriptions",
-                headers={"Authorization": f"Bearer {OPENROUTER_API_KEY}"},
-                files={"file": (filename, audio_bytes, "audio/ogg")},
-                data={"model": "openai/whisper-large-v3"},
-            )
-
-            if response.status_code == 200:
-                result = response.json()
-                text = result.get("text", "")
-                logger.info(f"🎤 Транскрипция через OpenRouter: {text[:50]}...")
-                return text
-
-    except Exception as e:
-        logger.warning(f"OpenRouter Whisper не доступен: {e}")
-
-    # Фоллбэк: Groq бесплатный Whisper
-    try:
-        groq_key = OPENROUTER_API_KEY  # Если есть отдельный ключ Groq, можно заменить
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(
-                GROQ_WHISPER_URL,
-                headers={"Authorization": f"Bearer {groq_key}"},
-                files={"file": (filename, audio_bytes, "audio/ogg")},
+                STT_API_URL,
+                headers={
+                    "Authorization": f"Bearer {GROQ_API_KEY}",
+                },
+                files={
+                    "file": (filename, audio_bytes, content_type),
+                },
                 data={
-                    "model": "whisper-large-v3",
+                    "model": STT_MODEL,
                     "language": "ru",
+                    "response_format": "text",
                 },
             )
 
-            if response.status_code == 200:
-                result = response.json()
-                text = result.get("text", "")
-                logger.info(f"🎤 Транскрипция через Groq: {text[:50]}...")
-                return text
+            logger.info(f"🎤 Groq Whisper ответ: status={response.status_code}")
 
+            if response.status_code == 200:
+                text = response.text.strip()
+                # Убираем кавычки если модель обернула
+                text = text.strip('"').strip("«»").strip("'")
+                logger.info(f"🎤 Транскрипция: {text[:100]}...")
+                return text
+            else:
+                logger.error(f"🎤 Ошибка Groq {response.status_code}: {response.text[:500]}")
+
+    except httpx.TimeoutException:
+        logger.error("🎤 Таймаут Groq Whisper (30 сек)")
     except Exception as e:
-        logger.warning(f"Groq Whisper не доступен: {e}")
+        logger.error(f"🎤 Исключение при транскрипции: {e}")
 
     raise RuntimeError("Не удалось транскрибировать голосовое сообщение")

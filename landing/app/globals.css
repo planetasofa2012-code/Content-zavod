@@ -1,0 +1,62 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply font-sans text-ink antialiased;
+    line-height: 1.6;
+  }
+
+  h1, h2, h3 {
+    line-height: 1.2;
+  }
+}
+
+@layer components {
+  /* Зелёная кнопка-CTA */
+  .btn-primary {
+    @apply inline-block bg-primary text-white font-semibold text-base
+           px-7 py-3.5 rounded-xl border-none cursor-pointer no-underline
+           transition-all duration-200
+           hover:bg-primary-dark hover:-translate-y-0.5
+           hover:shadow-[0_8px_24px_rgba(45,125,70,0.3)]
+           active:translate-y-0;
+  }
+
+  /* Контурная кнопка (на тёмном фоне) */
+  .btn-outline {
+    @apply inline-block bg-transparent text-white font-semibold text-base
+           px-7 py-3.5 rounded-xl border-2 border-white cursor-pointer
+           no-underline transition-all duration-200
+           hover:bg-white/10 hover:-translate-y-0.5;
+  }
+
+  /* Золотая кнопка */
+  .btn-gold {
+    @apply inline-block bg-gold text-ink font-semibold text-base
+           px-7 py-3.5 rounded-xl border-none cursor-pointer no-underline
+           transition-all duration-200
+           hover:bg-amber-600 hover:-translate-y-0.5;
+  }
+
+  /* Тег-бейдж (зелёный) */
+  .badge {
+    @apply inline-block bg-primary/10 text-primary text-xs font-semibold
+           px-3 py-1 rounded-full uppercase tracking-wide mb-3;
+  }
+
+  /* Тайтл секции */
+  .section-title {
+    @apply text-2xl sm:text-3xl lg:text-4xl font-bold text-ink mb-3;
+  }
+
+  /* Подзаголовок секции */
+  .section-sub {
+    @apply text-muted text-base sm:text-lg max-w-xl;
+  }
+}

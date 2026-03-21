@@ -23,9 +23,9 @@ def welcome_keyboard() -> InlineKeyboardMarkup:
 
 
 def booking_keyboard() -> InlineKeyboardMarkup:
-    """Кнопка записи на замер."""
+    """Кнопка записи на консультацию."""
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📐 Записаться на бесплатный замер", callback_data="book_measurement")],
+        [InlineKeyboardButton(text="📐 Записаться на бесплатную консультацию", callback_data="book_measurement")],
         [InlineKeyboardButton(text="💬 Ещё вопросы", callback_data="more_questions")],
     ])
 

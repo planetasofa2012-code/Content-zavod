@@ -23,7 +23,11 @@ VK_GROUP_ID = int(os.getenv("VK_GROUP_ID", "0"))
 
 # === AI ===
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")                    # Для Whisper
+
+# —— STT (Speech-to-Text) для голосовых правок — Groq Whisper (бесплатно) ——
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+STT_API_URL = "https://api.groq.com/openai/v1/audio/transcriptions"
+STT_MODEL = "whisper-large-v3"
 
 # === Модели ===
 DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "google/gemini-2.0-flash-001")
