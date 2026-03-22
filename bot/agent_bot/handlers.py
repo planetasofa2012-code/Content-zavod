@@ -22,6 +22,7 @@ from bot.agent_bot.keyboards import (
 from ai.openrouter import generate_text, chat
 from ai.prompts.agent_system import AGENT_SYSTEM_PROMPT
 from bot.agent_bot.dialog_logger import start_session, log_message
+from db.supabase_client import create_lead, find_lead_by_telegram
 
 logger = logging.getLogger(__name__)
 
@@ -125,7 +126,7 @@ async def on_client_message(message: Message, state: FSMContext, bot: Bot):
     else:
         await message.answer(response)
 
-    # Уведомление Александру о новом клиенте (первое сообщение)
+    # Уведомление Александру + создание лида в CRM (первое сообщение)
     if msg_count == 1:
         try:
             source = data.get("source", "")
@@ -141,6 +142,22 @@ async def on_client_message(message: Message, state: FSMContext, bot: Bot):
             )
         except Exception as e:
             logger.error(f"Не удалось уведомить владельца: {e}")
+
+        # Создаём лида в CRM (Supabase) → автоматически появится в дашборде
+        try:
+            furniture = data.get("furniture_type", "мебель")
+            lead = await create_lead(
+                name=message.from_user.full_name,
+                source="telegram",
+                type="kitchen" if "кухн" in furniture else "wardrobe" if "шкаф" in furniture else "kitchen",
+                description=f"Telegram: {user_text[:300]}",
+                telegram_id=message.from_user.id,
+                telegram_username=message.from_user.username or "",
+            )
+            if lead:
+                logger.info(f"✅ Лид создан в CRM: {message.from_user.full_name}")
+        except Exception as e:
+            logger.error(f"Ошибка создания лида в CRM: {e}")
 
     # Уведомление Александру когда клиент просит нерабочее время
     if _needs_schedule_check(response):
@@ -378,7 +395,7 @@ async def on_client_voice(message: Message, state: FSMContext, bot: Bot):
         else:
             await message.answer(response)
 
-        # Уведомление о первом сообщении
+        # Уведомление + CRM лид при первом сообщении
         if msg_count == 1:
             try:
                 source = data.get("source", "")
@@ -394,6 +411,20 @@ async def on_client_voice(message: Message, state: FSMContext, bot: Bot):
                 )
             except Exception as e:
                 logger.error(f"Не удалось уведомить владельца: {e}")
+
+            # Создаём лида в CRM (голосовое)
+            try:
+                lead = await create_lead(
+                    name=message.from_user.full_name,
+                    source="telegram",
+                    description=f"Telegram (голосовое): {text[:300]}",
+                    telegram_id=message.from_user.id,
+                    telegram_username=message.from_user.username or "",
+                )
+                if lead:
+                    logger.info(f"✅ Лид создан в CRM (голосовое): {message.from_user.full_name}")
+            except Exception as e:
+                logger.error(f"Ошибка создания лида в CRM: {e}")
 
         # Проверки на КП и расписание
         if _needs_schedule_check(response):

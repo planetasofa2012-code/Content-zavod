@@ -21,6 +21,7 @@ from ai.openrouter import chat_with_vision, generate_text
 from ai.prompts.post_generator import SYSTEM_PROMPT, get_post_generation_prompt
 from ai.prompts.interviewer import get_random_question, get_answer_to_post_prompt
 from ai.knowledge_base import save_to_knowledge_base
+from db.supabase_client import save_post, save_knowledge
 
 logger = logging.getLogger(__name__)
 
@@ -197,6 +198,19 @@ async def on_publish(callback: CallbackQuery, state: FSMContext, bot: Bot):
     except Exception as e:
         logger.error(f"VK publish error: {e}")
         results.append(f"❌ ВКонтакте: {e}")
+
+    # Сохраняем пост в Supabase
+    try:
+        tg_text = _extract_section(data["generated_posts"], "TELEGRAM")
+        await save_post(
+            title=tg_text[:80].split("\n")[0].strip(),
+            content=tg_text,
+            platforms=["telegram", "vk"],
+            status="published",
+            ai_generated=True,
+        )
+    except Exception as e:
+        logger.error(f"Supabase save_post error: {e}")
 
     await callback.message.edit_text(
         "📊 **Результат публикации:**\n\n" +
@@ -420,12 +434,23 @@ async def on_interview_answer(message: Message, state: FSMContext):
     category = data.get("interview_category", "")
     mode = data.get("interview_mode", "random")
 
-    # Сохраняем в базу знаний
+    # Сохраняем в локальную базу знаний (JSON)
     total = save_to_knowledge_base(
         question=question,
         answer=message.text,
         category=category,
     )
+
+    # Дублируем в Supabase (для дашборда)
+    try:
+        await save_knowledge(
+            question=question,
+            answer=message.text,
+            category=category,
+            source="interview",
+        )
+    except Exception as e:
+        logger.error(f"Supabase save_knowledge error: {e}")
 
     await state.update_data(last_answer=message.text)
 

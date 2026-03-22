@@ -1,14 +1,35 @@
-import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import type { Metadata, Viewport } from 'next'
+import { Inter, Epilogue } from 'next/font/google'
 import './globals.css'
 
-const inter = Inter({ subsets: ['latin', 'cyrillic'] })
+const inter = Inter({ 
+  subsets: ['latin', 'cyrillic'],
+  variable: '--font-inter',
+})
+
+const epilogue = Epilogue({ 
+  subsets: ['latin'],
+  variable: '--font-epilogue',
+})
+
+export const viewport: Viewport = {
+  themeColor: '#2D7D46',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+}
 
 export const metadata: Metadata = {
-  title: 'Мебель на заказ в Новосибирске — Кухня 54 | Бесплатный замер',
+  title: 'Кухня 54 — Мебель на заказ в Новосибирске',
   description:
     'Кухни, шкафы, гардеробные на заказ. 10+ лет опыта, 450+ клиентов. ' +
     'Бесплатный замер и 3D-эскиз. Гарантия 24 месяца.',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Кухня 54',
+  },
   openGraph: {
     title: 'Кухня мечты за 30 дней — Кухня 54',
     description:
@@ -16,7 +37,6 @@ export const metadata: Metadata = {
     locale: 'ru_RU',
     type: 'website',
   },
-  // Разрешаем индексацию
   robots: { index: true, follow: true },
 }
 
@@ -27,7 +47,24 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ru">
-      <body className={inter.className}>{children}</body>
+      <head>
+        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+      </head>
+      <body className={`${inter.variable} ${epilogue.variable} font-sans`}>
+        {children}
+        {/* Регистрация Service Worker для PWA */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if ('serviceWorker' in navigator) {
+                window.addEventListener('load', () => {
+                  navigator.serviceWorker.register('/sw.js');
+                });
+              }
+            `,
+          }}
+        />
+      </body>
     </html>
   )
 }

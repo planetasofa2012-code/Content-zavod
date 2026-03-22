@@ -14,9 +14,11 @@ const config: Config = {
         ink:     '#1A1A2E',
         muted:   '#6B7280',
         surface: '#F8F9FA',
+        oak:     '#8B6914',
       },
       fontFamily: {
-        sans: ['Inter', 'sans-serif'],
+        sans: ['var(--font-inter)', 'Inter', 'sans-serif'],
+        display: ['var(--font-epilogue)', 'Epilogue', 'sans-serif'],
       },
       keyframes: {
         // Анимация всплытия карточек
