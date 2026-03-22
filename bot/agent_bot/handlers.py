@@ -570,3 +570,67 @@ def _needs_kp_request(response: str) -> bool:
         "пришлю предложение", "пришлю вам предложение",
     ]
     return any(kw in response_lower for kw in kp_keywords)
+
+
+# === Catch-all: сообщение без FSM-состояния ===
+# Если клиент пишет боту БЕЗ /start — инициализируем сессию и отвечаем
+@router.message(F.text)
+async def on_message_no_state(message: Message, state: FSMContext, bot: Bot):
+    """Обработка сообщений от клиентов без FSM-состояния (не нажали /start)."""
+    user = message.from_user
+    user_text = message.text
+    logger.info(f"Сообщение без /start от {user.full_name} (id={user.id}): {user_text[:100]}")
+
+    # Инициализируем сессию как будто клиент нажал /start
+    dialog_history[user.id] = []
+
+    # Логирование: новая сессия
+    start_session(
+        user_id=user.id,
+        username=user.username or "",
+        full_name=user.full_name or "",
+        source="direct_message",
+    )
+
+    # Ставим состояние chatting
+    await state.set_state(AgentStates.chatting)
+    await state.update_data(source="direct_message", msg_count=1)
+
+    # Логирование сообщения клиента
+    log_message(user.id, "user", user_text, "text")
+
+    # Получаем ответ AI на первое сообщение клиента
+    response = await _get_ai_response(user.id, user_text)
+
+    # Логирование ответа бота
+    log_message(user.id, "assistant", response, "text")
+
+    await message.answer(response)
+
+    # Уведомление Александру + создание лида
+    try:
+        await bot.send_message(
+            OWNER_ID,
+            f"👤 **Новый клиент!**\n\n"
+            f"Имя: {user.full_name}\n"
+            f"Источник: 🔍 напрямую (без /start)\n"
+            f"Первое сообщение: «{user_text[:200]}»\n"
+            f"Диалог ведёт AI-агент",
+            parse_mode="Markdown",
+        )
+    except Exception as e:
+        logger.error(f"Не удалось уведомить владельца: {e}")
+
+    # Создаём лида в CRM
+    try:
+        lead = await create_lead(
+            name=user.full_name,
+            source="telegram",
+            description=f"Telegram (без /start): {user_text[:300]}",
+            telegram_id=user.id,
+            telegram_username=user.username or "",
+        )
+        if lead:
+            logger.info(f"✅ Лид создан в CRM: {user.full_name}")
+    except Exception as e:
+        logger.error(f"Ошибка создания лида в CRM: {e}")

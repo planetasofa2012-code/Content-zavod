@@ -12,3 +12,7 @@ logs/
 .pytest_cache/
 landing/node_modules/
 landing/.next/
+.git/
+*.md
+ideas/
+tests/

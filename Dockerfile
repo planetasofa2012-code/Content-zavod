@@ -12,7 +12,11 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Код проекта
-COPY . .
+COPY bot/ ./bot/
+COPY ai/ ./ai/
+COPY db/ ./db/
+COPY publishers/ ./publishers/
+COPY knowledge_base.json .
 
 # Папка для логов
 RUN mkdir -p /app/logs/dialogs

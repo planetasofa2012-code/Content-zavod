@@ -1,30 +1,37 @@
 #!/bin/bash
-# Деплой бота на сервер одной командой
+# Деплой всего проекта на сервер одной командой
 # Использование: ./deploy.sh
 
 set -e
 
-echo "🚀 Деплой content-zavod бота..."
+echo "🚀 Деплой content-zavod (бот + лендинг + nginx)..."
 
-# Остановить старый контейнер
-echo "⏹️ Останавливаю старый контейнер..."
+# Остановить старые контейнеры
+echo "⏹️ Останавливаю старые контейнеры..."
 docker-compose down 2>/dev/null || true
 
 # Подтянуть последние изменения
 echo "📥 Подтягиваю код из GitHub..."
 git pull origin main
 
-# Пересобрать и запустить
-echo "🔨 Пересобираю Docker-образ..."
+# Пересобрать и запустить всё
+echo "🔨 Пересобираю Docker-образы..."
 docker-compose up -d --build
 
 # Проверить статус
 echo "✅ Проверяю статус..."
-sleep 3
+sleep 5
 docker-compose ps
-docker-compose logs --tail=20
+echo ""
+echo "📋 Логи бота (последние 10 строк):"
+docker-compose logs --tail=10 bot
+echo ""
+echo "📋 Логи лендинга (последние 10 строк):"
+docker-compose logs --tail=10 landing
 
 echo ""
 echo "🎉 Деплой завершён!"
-echo "📋 Логи: docker-compose logs -f"
+echo "📋 Все логи: docker-compose logs -f"
+echo "📋 Логи бота: docker-compose logs -f bot"
+echo "📋 Логи лендинга: docker-compose logs -f landing"
 echo "⏹️ Остановить: docker-compose down"
