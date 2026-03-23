@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 
+export const dynamic = 'force-dynamic'
+
 // POST /api/auth — проверка пароля → установка cookie
 export async function POST(req: Request) {
   const body = await req.json()

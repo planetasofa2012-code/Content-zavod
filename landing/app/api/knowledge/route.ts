@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 
+export const dynamic = 'force-dynamic'
+
 // GET /api/knowledge — список записей базы знаний
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)

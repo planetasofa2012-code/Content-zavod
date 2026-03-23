@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 
+export const dynamic = 'force-dynamic'
+
 // GET /api/leads — список лидов для CRM-канбана
 export async function GET() {
   const { data, error } = await supabase

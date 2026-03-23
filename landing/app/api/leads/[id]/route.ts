@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 
+export const dynamic = 'force-dynamic'
+
 // PATCH /api/leads/[id] — обновить статус лида (перетаскивание в канбане)
 export async function PATCH(
   req: Request,

@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 
+export const dynamic = 'force-dynamic'
+
 // POST /api/lead — форма заявки с лендинга → создаёт лида в CRM
 export async function POST(req: Request) {
   const body = await req.json()

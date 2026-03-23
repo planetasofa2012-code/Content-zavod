@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 
+export const dynamic = 'force-dynamic'
+
 // GET /api/stats — сводная статистика для дашборда
 export async function GET() {
   // Параллельно получаем все метрики
