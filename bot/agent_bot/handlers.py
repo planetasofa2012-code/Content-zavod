@@ -34,6 +34,36 @@ dialog_history: dict[int, list[dict]] = {}
 # Максимум сообщений в контексте AI
 MAX_HISTORY = 20
 
+# Лимит Telegram на одно сообщение
+TG_MSG_LIMIT = 4000
+
+
+async def _send_long_text(bot: Bot, chat_id: int, text: str, parse_mode: str = "Markdown"):
+    """Отправляет длинный текст, разбивая на несколько сообщений если нужно."""
+    if len(text) <= TG_MSG_LIMIT:
+        await bot.send_message(chat_id, text, parse_mode=parse_mode)
+        return
+
+    # Разбиваем по двойным переносам (границы сообщений в логе)
+    chunks = []
+    current = ""
+    for line in text.split("\n"):
+        if len(current) + len(line) + 1 > TG_MSG_LIMIT:
+            if current.strip():
+                chunks.append(current.strip())
+            current = line + "\n"
+        else:
+            current += line + "\n"
+    if current.strip():
+        chunks.append(current.strip())
+
+    for i, chunk in enumerate(chunks):
+        try:
+            await bot.send_message(chat_id, chunk, parse_mode=parse_mode)
+        except Exception:
+            # Если Markdown ломается — отправляем без parse_mode
+            await bot.send_message(chat_id, chunk)
+
 
 # === /start ===
 @router.message(CommandStart())
@@ -179,13 +209,12 @@ async def on_client_message(message: Message, state: FSMContext, bot: Bot):
     # Уведомление Александру когда AI передаёт проект на расчёт КП
     if _needs_kp_request(response):
         try:
-            # Собрать историю диалога
+            # Собрать полную историю диалога
             chat_log = ""
             user_history = dialog_history.get(user_id, [])
-            for msg in user_history[-20:]:
+            for msg in user_history:
                 role = "👤 Клиент" if msg["role"] == "user" else "🤖 Бот"
-                text = msg["content"][:300]
-                chat_log += f"{role}: {text}\n\n"
+                chat_log += f"{role}: {msg['content']}\n\n"
 
             await bot.send_message(
                 OWNER_ID,
@@ -197,12 +226,10 @@ async def on_client_message(message: Message, state: FSMContext, bot: Bot):
                 f"Сделайте КП и отправьте через бота!",
                 parse_mode="Markdown",
             )
-            # Историю диалога — отдельным сообщением
+            # Историю диалога — отдельными сообщениями (без обрезки)
             if chat_log.strip():
                 log_text = f"💬 **Диалог с {message.from_user.full_name}:**\n\n{chat_log}"
-                if len(log_text) > 4000:
-                    log_text = log_text[:3997] + "..."
-                await bot.send_message(OWNER_ID, log_text, parse_mode="Markdown")
+                await _send_long_text(bot, OWNER_ID, log_text)
         except Exception as e:
             logger.error(f"Ошибка уведомления о КП: {e}")
 
@@ -259,13 +286,12 @@ async def on_confirm_booking(callback: CallbackQuery, state: FSMContext, bot: Bo
 
     # Уведомление Александру с полной историей диалога
     try:
-        # Собрать историю из dialog_history
+        # Собрать полную историю из dialog_history
         chat_log = ""
         user_history = dialog_history.get(user.id, [])
-        for msg in user_history[-16:]:
+        for msg in user_history:
             role = "👤 Клиент" if msg["role"] == "user" else "🤖 Бот"
-            text = msg["content"][:200]
-            chat_log += f"{role}: {text}\n\n"
+            chat_log += f"{role}: {msg['content']}\n\n"
 
         notification = (
             f"🔔 **НОВАЯ КОНСУЛЬТАЦИЯ!**\n\n"
@@ -279,13 +305,10 @@ async def on_confirm_booking(callback: CallbackQuery, state: FSMContext, bot: Bo
         )
         await bot.send_message(OWNER_ID, notification, parse_mode="Markdown")
 
-        # Отдельным сообщением — история диалога (может быть длинной)
+        # Отдельными сообщениями — полная история диалога (без обрезки)
         if chat_log.strip():
-            # Обрезаем до 4000 символов (лимит Telegram)
             log_text = f"💬 **История диалога с {user.full_name}:**\n\n{chat_log}"
-            if len(log_text) > 4000:
-                log_text = log_text[:3997] + "..."
-            await bot.send_message(OWNER_ID, log_text, parse_mode="Markdown")
+            await _send_long_text(bot, OWNER_ID, log_text)
     except Exception as e:
         logger.error(f"Ошибка уведомления о консультации: {e}")
 
@@ -444,9 +467,9 @@ async def on_client_voice(message: Message, state: FSMContext, bot: Bot):
             try:
                 chat_log = ""
                 user_history = dialog_history.get(user_id, [])
-                for msg in user_history[-20:]:
+                for msg in user_history:
                     role = "👤 Клиент" if msg["role"] == "user" else "🤖 Бот"
-                    chat_log += f"{role}: {msg['content'][:300]}\n\n"
+                    chat_log += f"{role}: {msg['content']}\n\n"
                 await bot.send_message(
                     OWNER_ID,
                     f"📋 **ЗАПРОС НА РАСЧЁТ КП!**\n\n"
@@ -457,9 +480,7 @@ async def on_client_voice(message: Message, state: FSMContext, bot: Bot):
                 )
                 if chat_log.strip():
                     log_text = f"💬 **Диалог с {message.from_user.full_name}:**\n\n{chat_log}"
-                    if len(log_text) > 4000:
-                        log_text = log_text[:3997] + "..."
-                    await bot.send_message(OWNER_ID, log_text, parse_mode="Markdown")
+                    await _send_long_text(bot, OWNER_ID, log_text)
             except Exception as e:
                 logger.error(f"Ошибка уведомления о КП: {e}")
 
