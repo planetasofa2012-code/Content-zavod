@@ -18,10 +18,11 @@ from bot.agent_bot.keyboards import (
     booking_keyboard,
     confirm_booking_keyboard,
     after_booking_keyboard,
+    owner_history_keyboard,
 )
 from ai.openrouter import generate_text, chat
 from ai.prompts.agent_system import AGENT_SYSTEM_PROMPT
-from bot.agent_bot.dialog_logger import start_session, log_message
+from bot.agent_bot.dialog_logger import start_session, log_message, get_all_sessions
 from db.supabase_client import create_lead, find_lead_by_telegram
 
 logger = logging.getLogger(__name__)
@@ -127,6 +128,61 @@ async def on_want_type(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
+# === Кнопка «Показать переписку» (для владельца) ===
+@router.callback_query(F.data.startswith("owner_history_"))
+async def on_owner_show_history(callback: CallbackQuery, bot: Bot):
+    """Отправляет полную историю переписки с клиентом из JSON-логов."""
+    # Проверка: только владелец
+    if callback.from_user.id != OWNER_ID:
+        await callback.answer("Недоступно", show_alert=True)
+        return
+
+    # Извлекаем user_id клиента из callback_data
+    try:
+        client_id = int(callback.data.replace("owner_history_", ""))
+    except ValueError:
+        await callback.answer("Ошибка ID", show_alert=True)
+        return
+
+    await callback.answer("⏳ Загружаю переписку...")
+
+    # Читаем из JSON-логов (персистентно, не из памяти)
+    sessions = get_all_sessions(client_id)
+
+    if not sessions:
+        await bot.send_message(OWNER_ID, "❌ Переписка не найдена.")
+        return
+
+    # Собираем полную историю из последней сессии
+    last_session = sessions[-1]
+    messages = last_session.get("messages", [])
+    user_info = last_session.get("user_info", {})
+    full_name = user_info.get("full_name", f"ID:{client_id}")
+    started = last_session.get("started_at", "")[:16].replace("T", " ")
+
+    if not messages:
+        await bot.send_message(OWNER_ID, f"💬 Переписка с {full_name} пуста.")
+        return
+
+    # Формируем текст
+    header = (
+        f"💬 **Переписка с {full_name}**\n"
+        f"📅 Начало: {started}\n"
+        f"📊 Сообщений: {len(messages)}\n"
+        f"{'─' * 30}\n\n"
+    )
+
+    chat_log = ""
+    for msg in messages:
+        role = "👤 Клиент" if msg["role"] == "user" else "🤖 Бот"
+        time_str = msg.get("timestamp", "")[:16].replace("T", " ")
+        msg_type = f" [{msg['type']}]" if msg.get("type") != "text" else ""
+        chat_log += f"{time_str} {role}{msg_type}:\n{msg['content']}\n\n"
+
+    full_text = header + chat_log
+    await _send_long_text(bot, OWNER_ID, full_text)
+
+
 # === Свободный диалог (основной обработчик) ===
 @router.message(AgentStates.chatting, F.text)
 async def on_client_message(message: Message, state: FSMContext, bot: Bot):
@@ -169,6 +225,7 @@ async def on_client_message(message: Message, state: FSMContext, bot: Bot):
                 f"Первое сообщение: «{user_text[:200]}»\n"
                 f"Диалог ведёт AI-агент",
                 parse_mode="Markdown",
+                reply_markup=owner_history_keyboard(user_id),
             )
         except Exception as e:
             logger.error(f"Не удалось уведомить владельца: {e}")
@@ -431,6 +488,7 @@ async def on_client_voice(message: Message, state: FSMContext, bot: Bot):
                     f"Первое сообщение (голосовое): «{text[:200]}»\n"
                     f"Диалог ведёт AI-агент",
                     parse_mode="Markdown",
+                    reply_markup=owner_history_keyboard(message.from_user.id),
                 )
             except Exception as e:
                 logger.error(f"Не удалось уведомить владельца: {e}")
@@ -638,6 +696,7 @@ async def on_message_no_state(message: Message, state: FSMContext, bot: Bot):
             f"Первое сообщение: «{user_text[:200]}»\n"
             f"Диалог ведёт AI-агент",
             parse_mode="Markdown",
+            reply_markup=owner_history_keyboard(user.id),
         )
     except Exception as e:
         logger.error(f"Не удалось уведомить владельца: {e}")

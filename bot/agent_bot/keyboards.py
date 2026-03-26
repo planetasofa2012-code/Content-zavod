@@ -46,3 +46,13 @@ def after_booking_keyboard() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="📸 Посмотреть наши работы", callback_data="show_portfolio")],
         [InlineKeyboardButton(text="💬 Ещё вопросы", callback_data="more_questions")],
     ])
+
+
+def owner_history_keyboard(client_user_id: int) -> InlineKeyboardMarkup:
+    """Кнопка для владельца — посмотреть переписку с клиентом."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(
+            text="📋 Показать переписку",
+            callback_data=f"owner_history_{client_user_id}",
+        )],
+    ])
